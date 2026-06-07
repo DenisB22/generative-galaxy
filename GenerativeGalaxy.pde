@@ -1,4 +1,6 @@
-import java.util.ArrayList;
+from pathlib import Path
+
+code = r'''import java.util.ArrayList;
 import java.io.File;
 
 ArrayList<Star> stars;
@@ -16,6 +18,7 @@ color[] planetPalette;
 void setup() {
   size(1000, 1000);
   smooth(8);
+  frameRate(30);
 
   // Create the screenshots folder if it does not exist.
   File screenshotsDir = new File(sketchPath("screenshots"));
@@ -34,7 +37,6 @@ void setup() {
   };
 
   generateGalaxy();
-  noLoop();
 }
 
 void draw() {
@@ -77,7 +79,9 @@ void generateGalaxy() {
     float s = random(1, 4);
     float a = random(100, 255);
     boolean glow = random(1) < 0.18;
-    stars.add(new Star(x, y, s, a, glow));
+    float twinkleSpeed = random(0.015, 0.045);
+    float twinkleOffset = random(TWO_PI);
+    stars.add(new Star(x, y, s, a, glow, twinkleSpeed, twinkleOffset));
   }
 
   // Generate colorful nebula clouds.
@@ -101,8 +105,9 @@ void generateGalaxy() {
 
     int dots = int(random(180, 320));
     float localSeed = random(10000);
+    float driftSpeed = random(0.002, 0.006);
 
-    nebulae.add(new Nebula(x, y, r, c, dots, localSeed));
+    nebulae.add(new Nebula(x, y, r, c, dots, localSeed, driftSpeed));
   }
 
   // Generate planets with different orbits, colors, sizes and surface patterns.
@@ -120,8 +125,13 @@ void generateGalaxy() {
     float tilt = random(-0.7, 0.7);
     int patternType = int(random(2));
     float pSeed = random(10000);
+    float orbitSpeed = random(0.001, 0.004);
 
-    planets.add(new Planet(orbitR, angle, radius, base, hasRing, moonCount, tilt, patternType, pSeed));
+    if (random(1) < 0.5) {
+      orbitSpeed *= -1;
+    }
+
+    planets.add(new Planet(orbitR, angle, radius, base, hasRing, moonCount, tilt, patternType, pSeed, orbitSpeed));
   }
 
   // Generate an asteroid belt around the galaxy core.
@@ -132,8 +142,13 @@ void generateGalaxy() {
     float angle = random(TWO_PI);
     float r = asteroidBeltRadius + random(-22, 22);
     float s = random(1.5, 4.5);
+    float speed = random(0.0008, 0.0025);
 
-    asteroids.add(new Asteroid(angle, r, s));
+    if (random(1) < 0.5) {
+      speed *= -1;
+    }
+
+    asteroids.add(new Asteroid(angle, r, s, speed));
   }
 
   // Generate one or two comets with random position, direction and tail length.
@@ -146,6 +161,7 @@ void generateGalaxy() {
     float tailLength = random(120, 220);
     float headSize = random(10, 18);
     float localSeed = random(10000);
+    float speed = random(0.4, 1.0);
 
     color cometColor;
     if (random(1) < 0.5) {
@@ -154,14 +170,13 @@ void generateGalaxy() {
       cometColor = color(255, 220, 160);
     }
 
-    comets.add(new Comet(x, y, angle, tailLength, headSize, cometColor, localSeed));
+    comets.add(new Comet(x, y, angle, tailLength, headSize, cometColor, localSeed, speed));
   }
 }
 
 void keyPressed() {
   if (key == 'r' || key == 'R') {
     generateGalaxy();
-    redraw();
     println("New galaxy generated.");
   }
 
@@ -199,9 +214,11 @@ void drawBackgroundGradient() {
 void drawCosmicDust() {
   strokeWeight(1);
 
+  float timeOffset = frameCount * 0.002;
+
   for (int x = 0; x < width; x += 8) {
     for (int y = 0; y < height; y += 8) {
-      float n = noise(x * 0.008, y * 0.008, seedValue * 0.0001);
+      float n = noise(x * 0.008, y * 0.008, seedValue * 0.0001 + timeOffset);
 
       if (n > 0.62) {
         stroke(120 + n * 120, 40);
@@ -220,16 +237,18 @@ void drawNebulae() {
 void drawGalaxyCore() {
   noStroke();
 
+  float pulse = sin(frameCount * 0.035) * 10;
+
   for (int i = 180; i > 0; i -= 6) {
     float alpha = map(i, 180, 0, 8, 90);
     fill(255, 220, 170, alpha);
-    ellipse(galaxyX, galaxyY, i * 2.0, i * 1.2);
+    ellipse(galaxyX, galaxyY, (i + pulse) * 2.0, (i + pulse) * 1.2);
   }
 
   for (int i = 90; i > 0; i -= 4) {
     float alpha = map(i, 90, 0, 10, 100);
     fill(255, 255, 220, alpha);
-    ellipse(galaxyX, galaxyY, i * 1.2, i * 1.2);
+    ellipse(galaxyX, galaxyY, (i + pulse * 0.4) * 1.2, (i + pulse * 0.4) * 1.2);
   }
 }
 
@@ -241,6 +260,7 @@ void drawStars() {
 
 void drawComets() {
   for (Comet c : comets) {
+    c.update();
     c.display();
   }
 }
@@ -279,25 +299,33 @@ void drawInstructions() {
 class Star {
   float x, y, size, alpha;
   boolean glow;
+  float twinkleSpeed;
+  float twinkleOffset;
 
-  Star(float x, float y, float size, float alpha, boolean glow) {
+  Star(float x, float y, float size, float alpha, boolean glow, float twinkleSpeed, float twinkleOffset) {
     this.x = x;
     this.y = y;
     this.size = size;
     this.alpha = alpha;
     this.glow = glow;
+    this.twinkleSpeed = twinkleSpeed;
+    this.twinkleOffset = twinkleOffset;
   }
 
   void display() {
     noStroke();
 
+    float twinkle = map(sin(frameCount * twinkleSpeed + twinkleOffset), -1, 1, 0.55, 1.25);
+    float currentAlpha = constrain(alpha * twinkle, 40, 255);
+    float currentSize = size * twinkle;
+
     if (glow) {
-      fill(255, alpha * 0.18);
-      ellipse(x, y, size * 5, size * 5);
+      fill(255, currentAlpha * 0.18);
+      ellipse(x, y, currentSize * 5, currentSize * 5);
     }
 
-    fill(255, alpha);
-    ellipse(x, y, size, size);
+    fill(255, currentAlpha);
+    ellipse(x, y, currentSize, currentSize);
   }
 }
 
@@ -306,25 +334,30 @@ class Nebula {
   color c;
   int dots;
   float localSeed;
+  float driftSpeed;
 
-  Nebula(float x, float y, float radius, color c, int dots, float localSeed) {
+  Nebula(float x, float y, float radius, color c, int dots, float localSeed, float driftSpeed) {
     this.x = x;
     this.y = y;
     this.radius = radius;
     this.c = c;
     this.dots = dots;
     this.localSeed = localSeed;
+    this.driftSpeed = driftSpeed;
   }
 
   void display() {
     randomSeed((int)localSeed);
     noStroke();
 
+    float driftX = sin(frameCount * driftSpeed + localSeed) * 8;
+    float driftY = cos(frameCount * driftSpeed + localSeed) * 5;
+
     for (int i = 0; i < dots; i++) {
       float angle = random(TWO_PI);
       float dist = radius * sqrt(random(1));
-      float px = x + cos(angle) * dist;
-      float py = y + sin(angle) * dist * 0.7;
+      float px = x + driftX + cos(angle) * dist;
+      float py = y + driftY + sin(angle) * dist * 0.7;
       float d = random(radius * 0.07, radius * 0.24);
       float a = random(8, 28);
 
@@ -344,8 +377,9 @@ class Planet {
   float tilt;
   int patternType;
   float patternSeed;
+  float orbitSpeed;
 
-  Planet(float orbitRadius, float angle, float radius, color baseColor, boolean hasRing, int moonCount, float tilt, int patternType, float patternSeed) {
+  Planet(float orbitRadius, float angle, float radius, color baseColor, boolean hasRing, int moonCount, float tilt, int patternType, float patternSeed, float orbitSpeed) {
     this.orbitRadius = orbitRadius;
     this.angle = angle;
     this.radius = radius;
@@ -355,15 +389,18 @@ class Planet {
     this.tilt = tilt;
     this.patternType = patternType;
     this.patternSeed = patternSeed;
+    this.orbitSpeed = orbitSpeed;
   }
 
   void display() {
-    float px = galaxyX + cos(angle) * orbitRadius;
-    float py = galaxyY + sin(angle) * orbitRadius * 0.55;
+    float animatedAngle = angle + frameCount * orbitSpeed;
+
+    float px = galaxyX + cos(animatedAngle) * orbitRadius;
+    float py = galaxyY + sin(animatedAngle) * orbitRadius * 0.55;
 
     // Draw planet moons.
     for (int i = 0; i < moonCount; i++) {
-      float ma = angle * 1.7 + TWO_PI * i / max(1, moonCount) + patternSeed * 0.001;
+      float ma = frameCount * 0.025 + TWO_PI * i / max(1, moonCount) + patternSeed * 0.001;
       float md = radius * 2.2 + i * 10;
 
       noStroke();
@@ -440,16 +477,20 @@ class Asteroid {
   float angle;
   float orbitRadius;
   float size;
+  float speed;
 
-  Asteroid(float angle, float orbitRadius, float size) {
+  Asteroid(float angle, float orbitRadius, float size, float speed) {
     this.angle = angle;
     this.orbitRadius = orbitRadius;
     this.size = size;
+    this.speed = speed;
   }
 
   void display() {
-    float px = galaxyX + cos(angle) * orbitRadius;
-    float py = galaxyY + sin(angle) * orbitRadius * 0.55;
+    float animatedAngle = angle + frameCount * speed;
+
+    float px = galaxyX + cos(animatedAngle) * orbitRadius;
+    float py = galaxyY + sin(animatedAngle) * orbitRadius * 0.55;
 
     noStroke();
     fill(180, 160);
@@ -464,8 +505,9 @@ class Comet {
   float headSize;
   color cometColor;
   float localSeed;
+  float speed;
 
-  Comet(float x, float y, float angle, float tailLength, float headSize, color cometColor, float localSeed) {
+  Comet(float x, float y, float angle, float tailLength, float headSize, color cometColor, float localSeed, float speed) {
     this.x = x;
     this.y = y;
     this.angle = angle;
@@ -473,6 +515,26 @@ class Comet {
     this.headSize = headSize;
     this.cometColor = cometColor;
     this.localSeed = localSeed;
+    this.speed = speed;
+  }
+
+  void update() {
+    x += cos(angle) * speed;
+    y += sin(angle) * speed;
+
+    // Wrap the comet around the screen to keep the animation continuous.
+    if (x > width + tailLength) {
+      x = -tailLength;
+    }
+    if (x < -tailLength) {
+      x = width + tailLength;
+    }
+    if (y > height + tailLength) {
+      y = -tailLength;
+    }
+    if (y < -tailLength) {
+      y = height + tailLength;
+    }
   }
 
   void display() {
@@ -513,3 +575,100 @@ class Comet {
     popMatrix();
   }
 }
+'''
+
+readme = '''# Generative Galaxy
+
+## Overview
+
+Generative Galaxy is an algorithmic visualization project created with Processing. The program generates a unique animated space scene containing stars, colorful nebula clouds, planets, orbital paths, a glowing galaxy core, an asteroid belt, and randomly generated comets.
+
+The visualization is based on a generative approach. Random values are used to create different positions, sizes, colors, shapes, orbits, and visual compositions each time the scene is generated. The `noise()` function is also used to create a more organic cosmic dust effect.
+
+The current version extends the project with animation. Stars twinkle, the galaxy core pulses, nebula clouds drift slightly, planets orbit around the galaxy core, asteroids move around the belt, and comets travel through the scene.
+
+## Current Features
+
+- Procedurally generated galaxy scene
+- Random star field
+- Animated twinkling stars
+- Colorful drifting nebula clouds
+- Glowing animated galaxy core
+- Randomly generated planets
+- Animated planetary orbits
+- Planet rings
+- Planet moons
+- Planet surface patterns
+- Orbital paths
+- Animated asteroid belt
+- Cosmic dust generated with `noise()`
+- Randomly generated moving comets with glowing particle tails
+- Screenshot saving functionality
+
+## Controls
+
+- Press `R` to generate a new galaxy.
+- Press `S` to save the current visualization as a PNG image.
+
+Saved screenshots are stored inside the `screenshots` folder.
+
+## Software
+
+This project was created with:
+
+- Processing
+- Java mode
+
+## Project Purpose
+
+The purpose of this project is to demonstrate algorithmic visualization through a generative approach. The generated images are not manually drawn. Instead, they are produced by algorithms that use randomness and procedural rules to create multiple unique versions of the same visual concept.
+
+The project also demonstrates step-by-step development. The first version contained the main galaxy structure, the second version introduced randomly generated comets, and the current version adds animated activity to the generated galaxy.
+
+## Screenshots Plan
+
+The project should include at least six screenshots. The screenshots should demonstrate both the base version and the improved animated version of the visualization:
+
+1. Initial generated galaxy from the first version
+2. Regenerated galaxy after pressing `R` in the first version
+3. Extended galaxy version with comet effect
+4. Regenerated galaxy version with comet effect
+5. Animated galaxy state after a few seconds
+6. Another animated galaxy state after pressing `R` or waiting a few more seconds
+
+More screenshots may be added as the project is extended with additional visual elements.
+
+## Suggested Commit History
+
+A clean GitHub history for the project may look like this:
+
+1. `Initial generative galaxy version`
+2. `Add comet effect`
+3. `Add animated galaxy activity`
+
+## Planned Improvements
+
+Future versions may include:
+
+- Falling stars
+- More detailed planets
+- Additional glow effects
+- Improved galaxy composition
+- Black hole effect
+
+## Author
+
+Course project for algorithmic visualization through a generative approach.
+'''
+
+base = Path("/mnt/data/generative_galaxy_v3")
+base.mkdir(exist_ok=True)
+
+pde_path = base / "GenerativeGalaxy.pde"
+readme_path = base / "README.md"
+
+pde_path.write_text(code, encoding="utf-8")
+readme_path.write_text(readme, encoding="utf-8")
+
+print(f"Created: {pde_path}")
+print(f"Created: {readme_path}")
