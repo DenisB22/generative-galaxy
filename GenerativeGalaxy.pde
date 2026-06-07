@@ -1,6 +1,4 @@
-from pathlib import Path
-
-code = r'''import java.util.ArrayList;
+import java.util.ArrayList;
 import java.io.File;
 
 ArrayList<Star> stars;
@@ -8,6 +6,7 @@ ArrayList<Nebula> nebulae;
 ArrayList<Planet> planets;
 ArrayList<Asteroid> asteroids;
 ArrayList<Comet> comets;
+ArrayList<ShootingStar> shootingStars;
 
 int seedValue;
 float galaxyX, galaxyY;
@@ -48,6 +47,7 @@ void draw() {
   drawNebulae();
   drawGalaxyCore();
   drawStars();
+  drawShootingStars();
   drawComets();
   drawOrbits();
   drawAsteroidBelt();
@@ -70,6 +70,7 @@ void generateGalaxy() {
   planets = new ArrayList<Planet>();
   asteroids = new ArrayList<Asteroid>();
   comets = new ArrayList<Comet>();
+  shootingStars = new ArrayList<ShootingStar>();
 
   // Generate a random star field.
   int starCount = int(random(450, 750));
@@ -172,6 +173,30 @@ void generateGalaxy() {
 
     comets.add(new Comet(x, y, angle, tailLength, headSize, cometColor, localSeed, speed));
   }
+
+  // Generate shooting stars as a final animated enhancement.
+  int shootingStarCount = int(random(3, 6));
+  for (int i = 0; i < shootingStarCount; i++) {
+    shootingStars.add(createRandomShootingStar(i * 45));
+  }
+}
+
+ShootingStar createRandomShootingStar(int delay) {
+  float x = random(-250, width * 0.7);
+  float y = random(40, height * 0.45);
+  float angle = random(0.25, 0.55);
+  float speed = random(7.0, 13.0);
+  float length = random(80, 150);
+  float startDelay = delay + int(random(0, 90));
+  color streakColor;
+
+  if (random(1) < 0.5) {
+    streakColor = color(180, 230, 255);
+  } else {
+    streakColor = color(255, 230, 180);
+  }
+
+  return new ShootingStar(x, y, angle, speed, length, startDelay, streakColor);
 }
 
 void keyPressed() {
@@ -254,6 +279,13 @@ void drawGalaxyCore() {
 
 void drawStars() {
   for (Star s : stars) {
+    s.display();
+  }
+}
+
+void drawShootingStars() {
+  for (ShootingStar s : shootingStars) {
+    s.update();
     s.display();
   }
 }
@@ -575,100 +607,75 @@ class Comet {
     popMatrix();
   }
 }
-'''
 
-readme = '''# Generative Galaxy
+class ShootingStar {
+  float x, y;
+  float angle;
+  float speed;
+  float length;
+  float alpha;
+  float startDelay;
+  color streakColor;
 
-## Overview
+  ShootingStar(float x, float y, float angle, float speed, float length, float startDelay, color streakColor) {
+    this.x = x;
+    this.y = y;
+    this.angle = angle;
+    this.speed = speed;
+    this.length = length;
+    this.startDelay = startDelay;
+    this.streakColor = streakColor;
+    this.alpha = 0;
+  }
 
-Generative Galaxy is an algorithmic visualization project created with Processing. The program generates a unique animated space scene containing stars, colorful nebula clouds, planets, orbital paths, a glowing galaxy core, an asteroid belt, and randomly generated comets.
+  void update() {
+    if (frameCount < startDelay) {
+      return;
+    }
 
-The visualization is based on a generative approach. Random values are used to create different positions, sizes, colors, shapes, orbits, and visual compositions each time the scene is generated. The `noise()` function is also used to create a more organic cosmic dust effect.
+    x += cos(angle) * speed;
+    y += sin(angle) * speed;
 
-The current version extends the project with animation. Stars twinkle, the galaxy core pulses, nebula clouds drift slightly, planets orbit around the galaxy core, asteroids move around the belt, and comets travel through the scene.
+    alpha = 220;
 
-## Current Features
+    if (x > width + length || y > height + length) {
+      reset();
+    }
+  }
 
-- Procedurally generated galaxy scene
-- Random star field
-- Animated twinkling stars
-- Colorful drifting nebula clouds
-- Glowing animated galaxy core
-- Randomly generated planets
-- Animated planetary orbits
-- Planet rings
-- Planet moons
-- Planet surface patterns
-- Orbital paths
-- Animated asteroid belt
-- Cosmic dust generated with `noise()`
-- Randomly generated moving comets with glowing particle tails
-- Screenshot saving functionality
+  void reset() {
+    x = random(-250, width * 0.5);
+    y = random(20, height * 0.35);
+    angle = random(0.25, 0.55);
+    speed = random(7.0, 13.0);
+    length = random(80, 150);
+    startDelay = frameCount + int(random(40, 160));
 
-## Controls
+    if (random(1) < 0.5) {
+      streakColor = color(180, 230, 255);
+    } else {
+      streakColor = color(255, 230, 180);
+    }
+  }
 
-- Press `R` to generate a new galaxy.
-- Press `S` to save the current visualization as a PNG image.
+  void display() {
+    if (frameCount < startDelay) {
+      return;
+    }
 
-Saved screenshots are stored inside the `screenshots` folder.
+    float tailX = x - cos(angle) * length;
+    float tailY = y - sin(angle) * length;
 
-## Software
+    strokeWeight(2);
+    stroke(red(streakColor), green(streakColor), blue(streakColor), alpha);
+    line(x, y, tailX, tailY);
 
-This project was created with:
+    strokeWeight(5);
+    stroke(255, 180);
+    point(x, y);
 
-- Processing
-- Java mode
-
-## Project Purpose
-
-The purpose of this project is to demonstrate algorithmic visualization through a generative approach. The generated images are not manually drawn. Instead, they are produced by algorithms that use randomness and procedural rules to create multiple unique versions of the same visual concept.
-
-The project also demonstrates step-by-step development. The first version contained the main galaxy structure, the second version introduced randomly generated comets, and the current version adds animated activity to the generated galaxy.
-
-## Screenshots Plan
-
-The project should include at least six screenshots. The screenshots should demonstrate both the base version and the improved animated version of the visualization:
-
-1. Initial generated galaxy from the first version
-2. Regenerated galaxy after pressing `R` in the first version
-3. Extended galaxy version with comet effect
-4. Regenerated galaxy version with comet effect
-5. Animated galaxy state after a few seconds
-6. Another animated galaxy state after pressing `R` or waiting a few more seconds
-
-More screenshots may be added as the project is extended with additional visual elements.
-
-## Suggested Commit History
-
-A clean GitHub history for the project may look like this:
-
-1. `Initial generative galaxy version`
-2. `Add comet effect`
-3. `Add animated galaxy activity`
-
-## Planned Improvements
-
-Future versions may include:
-
-- Falling stars
-- More detailed planets
-- Additional glow effects
-- Improved galaxy composition
-- Black hole effect
-
-## Author
-
-Course project for algorithmic visualization through a generative approach.
-'''
-
-base = Path("/mnt/data/generative_galaxy_v3")
-base.mkdir(exist_ok=True)
-
-pde_path = base / "GenerativeGalaxy.pde"
-readme_path = base / "README.md"
-
-pde_path.write_text(code, encoding="utf-8")
-readme_path.write_text(readme, encoding="utf-8")
-
-print(f"Created: {pde_path}")
-print(f"Created: {readme_path}")
+    noStroke();
+    fill(red(streakColor), green(streakColor), blue(streakColor), 80);
+    ellipse(x, y, 14, 14);
+  }
+}
