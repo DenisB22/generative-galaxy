@@ -47,29 +47,6 @@ The purpose of this project is to demonstrate algorithmic visualization through 
 
 The project also demonstrates step-by-step development. The first version contained the main galaxy structure, the second version introduced randomly generated comets, the third version added animated activity, and the final version adds shooting stars as an additional animated visual element.
 
-## Screenshots Plan
-
-The project should include at least six screenshots. The screenshots should demonstrate both the base version and the improved animated versions of the visualization:
-
-1. Initial generated galaxy from the first version
-2. Regenerated galaxy after pressing `R` in the first version
-3. Extended galaxy version with comet effect
-4. Regenerated galaxy version with comet effect
-5. Animated galaxy state after a few seconds
-6. Final animated galaxy version with shooting stars
-7. Regenerated final version after pressing `R`
-
-More screenshots may be included if additional generated versions are saved.
-
-## Suggested Commit History
-
-A clean GitHub history for the project may look like this:
-
-1. `Initial generative galaxy version`
-2. `Add comet effect`
-3. `Add animated galaxy activity`
-4. `Add shooting stars`
-
 ## Final Result
 
 The final result is an animated generative galaxy where multiple elements are created and controlled algorithmically. The combination of randomness, noise-based dust, animated objects, and screenshot export functionality satisfies the project requirements for an algorithmic visualization created through a generative approach.
