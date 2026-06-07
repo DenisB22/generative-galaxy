@@ -5,6 +5,7 @@ ArrayList<Star> stars;
 ArrayList<Nebula> nebulae;
 ArrayList<Planet> planets;
 ArrayList<Asteroid> asteroids;
+ArrayList<Comet> comets;
 
 int seedValue;
 float galaxyX, galaxyY;
@@ -45,6 +46,7 @@ void draw() {
   drawNebulae();
   drawGalaxyCore();
   drawStars();
+  drawComets();
   drawOrbits();
   drawAsteroidBelt();
   drawPlanets();
@@ -65,6 +67,7 @@ void generateGalaxy() {
   nebulae = new ArrayList<Nebula>();
   planets = new ArrayList<Planet>();
   asteroids = new ArrayList<Asteroid>();
+  comets = new ArrayList<Comet>();
 
   // Generate a random star field.
   int starCount = int(random(450, 750));
@@ -131,6 +134,27 @@ void generateGalaxy() {
     float s = random(1.5, 4.5);
 
     asteroids.add(new Asteroid(angle, r, s));
+  }
+
+  // Generate one or two comets with random position, direction and tail length.
+  int cometCount = int(random(1, 3));
+
+  for (int i = 0; i < cometCount; i++) {
+    float x = random(width * 0.15, width * 0.85);
+    float y = random(height * 0.10, height * 0.65);
+    float angle = random(-0.9, 0.9);
+    float tailLength = random(120, 220);
+    float headSize = random(10, 18);
+    float localSeed = random(10000);
+
+    color cometColor;
+    if (random(1) < 0.5) {
+      cometColor = color(120, 220, 255);
+    } else {
+      cometColor = color(255, 220, 160);
+    }
+
+    comets.add(new Comet(x, y, angle, tailLength, headSize, cometColor, localSeed));
   }
 }
 
@@ -212,6 +236,12 @@ void drawGalaxyCore() {
 void drawStars() {
   for (Star s : stars) {
     s.display();
+  }
+}
+
+void drawComets() {
+  for (Comet c : comets) {
+    c.display();
   }
 }
 
@@ -424,5 +454,62 @@ class Asteroid {
     noStroke();
     fill(180, 160);
     ellipse(px, py, size, size * 0.8);
+  }
+}
+
+class Comet {
+  float x, y;
+  float angle;
+  float tailLength;
+  float headSize;
+  color cometColor;
+  float localSeed;
+
+  Comet(float x, float y, float angle, float tailLength, float headSize, color cometColor, float localSeed) {
+    this.x = x;
+    this.y = y;
+    this.angle = angle;
+    this.tailLength = tailLength;
+    this.headSize = headSize;
+    this.cometColor = cometColor;
+    this.localSeed = localSeed;
+  }
+
+  void display() {
+    pushMatrix();
+    translate(x, y);
+    rotate(angle);
+
+    randomSeed((int)localSeed);
+    noStroke();
+
+    // Draw the glowing tail using many transparent particles.
+    int tailParticles = 45;
+
+    for (int i = tailParticles; i >= 0; i--) {
+      float t = i / float(tailParticles);
+
+      float px = -t * tailLength;
+      float py = random(-12, 12) * t;
+
+      float particleSize = map(t, 0, 1, headSize * 0.7, headSize * 2.8);
+      float alpha = map(t, 0, 1, 90, 0);
+
+      fill(red(cometColor), green(cometColor), blue(cometColor), alpha);
+      ellipse(px, py, particleSize, particleSize * 0.65);
+    }
+
+    // Draw the outer glow around the comet head.
+    fill(red(cometColor), green(cometColor), blue(cometColor), 60);
+    ellipse(0, 0, headSize * 4.0, headSize * 4.0);
+
+    // Draw the bright comet head.
+    fill(255, 240);
+    ellipse(0, 0, headSize, headSize);
+
+    fill(red(cometColor), green(cometColor), blue(cometColor), 160);
+    ellipse(0, 0, headSize * 1.8, headSize * 1.8);
+
+    popMatrix();
   }
 }
